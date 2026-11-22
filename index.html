@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Long Family Turkey Games — Live Leaderboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --bg-dark: #170b0b;
+    --bg-mid: #2a1414;
+    --gold: #c8952f;
+    --gold-bright: #e7c67a;
+    --red: #8a1f1f;
+    --cream: #f0e6d2;
+    --label: #cbb98f;
+    --border: #6b4a1e;
+    --border-faint: #4a3315;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(ellipse 1400px 900px at 50% -10%, var(--bg-mid) 0%, var(--bg-dark) 55%, #0c0707 100%);
+    background-attachment: fixed;
+    color: var(--cream);
+    font-family: "Oswald", "Arial Narrow", Arial, sans-serif;
+    min-height: 100vh;
+  }
+  a { color: var(--gold-bright); }
+  .display { font-family: "Cinzel", "Trajan Pro", "Times New Roman", serif; }
+
+  header {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 36px 20px 0 20px;
+    text-align: center;
+  }
+  .kicker {
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--gold);
+    font-weight: 600;
+  }
+  .rule {
+    width: 110px; height: 1px; background: var(--border);
+    margin: 12px auto 16px auto;
+  }
+  .emblem { margin-bottom: 6px; }
+  h1.title-sub {
+    margin: 4px 0 0 0; font-size: clamp(22px, 5vw, 34px); font-weight: 900;
+    color: var(--cream); letter-spacing: 2px;
+  }
+  h1.title-main {
+    margin: 0; font-size: clamp(32px, 8vw, 54px); font-weight: 900;
+    color: var(--gold); letter-spacing: 2px; line-height: 1.05;
+  }
+  .tagline {
+    margin-top: 10px; font-size: 13px; letter-spacing: 2px; color: var(--gold-bright);
+    font-style: italic;
+  }
+
+  #status-banner {
+    max-width: 980px; margin: 22px auto 0 auto; padding: 10px 16px;
+    border: 1px solid var(--border); background: rgba(200,149,47,0.07);
+    font-size: 13px; text-align: center; border-radius: 2px;
+  }
+  #status-banner.status-demo { border-color: var(--gold); }
+  #status-banner.status-error { border-color: var(--red); background: rgba(138,31,31,0.15); }
+  #status-banner code { background: rgba(0,0,0,0.3); padding: 1px 5px; }
+
+  .toolbar {
+    max-width: 980px; margin: 10px auto 0 auto; display: flex; justify-content: center;
+  }
+  #refresh-now {
+    background: var(--gold); color: var(--bg-dark); border: none; font-family: "Oswald", sans-serif;
+    font-weight: 600; letter-spacing: 1px; font-size: 12px; padding: 8px 18px; cursor: pointer;
+    text-transform: uppercase;
+  }
+  #refresh-now:hover { background: var(--gold-bright); }
+
+  nav.tabs {
+    max-width: 980px; margin: 22px auto 0 auto; display: flex; flex-wrap: wrap;
+    justify-content: center; gap: 6px; padding: 0 12px;
+  }
+  .tab-button {
+    background: transparent; color: var(--label); border: 1px solid var(--border);
+    font-family: "Oswald", sans-serif; font-size: 12px; letter-spacing: 1.5px;
+    text-transform: uppercase; padding: 9px 16px; cursor: pointer;
+  }
+  .tab-button.active { background: var(--gold); color: var(--bg-dark); border-color: var(--gold); font-weight: 600; }
+  .tab-button:hover:not(.active) { border-color: var(--gold); color: var(--gold-bright); }
+
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 60px 16px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .card {
+    border: 1px solid var(--border); background: rgba(255,255,255,0.02);
+    padding: 18px 20px; margin-top: 16px;
+  }
+  .card h3 {
+    margin: 0 0 14px 0; font-size: 15px; letter-spacing: 1.5px; color: var(--gold);
+    text-transform: uppercase; font-family: "Oswald", sans-serif; font-weight: 600;
+  }
+  .card h4 { margin: 0 0 8px 0; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+
+  .vbox-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .vbox-row:first-of-type { margin-top: 0; }
+  .vbox {
+    flex: 1 1 140px; border: 1px solid; border-left-width: 4px; padding: 12px 14px;
+    background: rgba(255,255,255,0.02);
+  }
+  .vbox-value { font-size: 20px; font-weight: 700; font-family: "Cinzel", serif; }
+  .vbox-caption { font-size: 11px; color: var(--label); letter-spacing: 0.5px; margin-top: 4px; }
+
+  .barlist { display: flex; flex-direction: column; gap: 10px; }
+  .barrow { display: flex; align-items: center; gap: 10px; }
+  .barrow-label { flex: 0 0 90px; font-size: 13px; }
+  .barrow-track { flex: 1; background: #2a1a10; border: 1px solid var(--border); height: 22px; }
+  .barrow-fill { height: 100%; }
+  .barrow-value { flex: 0 0 50px; text-align: right; font-size: 13px; font-weight: 600; }
+
+  .groupedbars { display: flex; flex-direction: column; gap: 18px; }
+  .groupedbar-row { display: flex; align-items: flex-end; gap: 16px; }
+  .groupedbar-bars { display: flex; gap: 10px; align-items: flex-end; height: 110px; flex: 1; }
+  .groupedbar-col { display: flex; flex-direction: column; align-items: center; width: 60px; }
+  .groupedbar-track {
+    width: 32px; height: 80px; background: #2a1a10; border: 1px solid var(--border);
+    display: flex; align-items: flex-end; overflow: hidden;
+  }
+  .groupedbar-fill { width: 100%; }
+  .groupedbar-score { font-size: 11px; margin-top: 4px; }
+  .groupedbar-name { font-size: 9px; color: var(--label); letter-spacing: 0.5px; }
+
+  .course-tables { display: flex; flex-wrap: wrap; gap: 20px; }
+  .course-table-block { flex: 1 1 260px; }
+
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.data-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 13px; }
+  table.data-table th, table.data-table td {
+    border-bottom: 1px solid var(--border-faint); padding: 7px 8px; text-align: left; white-space: nowrap;
+  }
+  table.data-table td:last-child, table.data-table th:last-child { white-space: normal; }
+  table.data-table th {
+    color: var(--gold); text-transform: uppercase; font-size: 11px; letter-spacing: 1px;
+  }
+  tr.row-highlight { background: rgba(200,149,47,0.14); }
+  tr.reason-both { background: rgba(192,57,43,0.14); }
+  tr.reason-trimmed { background: rgba(230,126,34,0.10); }
+  tr.reason-flagged { background: rgba(241,196,15,0.08); }
+
+  .note-card { font-size: 13px; line-height: 1.6; color: var(--cream); }
+
+  .radar-grid { display: flex; flex-wrap: wrap; gap: 16px; }
+  .radar-card { flex: 1 1 280px; text-align: center; }
+  .radar-label { fill: var(--label); font-size: 10px; font-family: "Oswald", sans-serif; }
+  .radar-legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 8px; font-size: 12px; }
+  .legend-chip { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 10px; height: 10px; display: inline-block; border-radius: 50%; }
+
+  footer {
+    text-align: center; font-size: 11px; color: #7a6a4a; padding: 20px; letter-spacing: 1px;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="kicker">OFFICIAL CAPITOL-ADJACENT BROADCAST &middot; LIVE SCORING FEED</div>
+  <div class="rule"></div>
+  <div class="emblem">
+    <svg width="78" height="78" viewBox="0 0 108 108">
+      <circle cx="54" cy="54" r="51" fill="none" stroke="#c8952f" stroke-width="2"/>
+      <circle cx="54" cy="54" r="44" fill="none" stroke="#6b4a1e" stroke-width="1"/>
+      <!-- turkey drumstick -->
+      <g>
+        <path d="M58 34 C70 38 76 50 72 60 C69 67 61 71 55 69 C48 67 44 60 46 53 C43 52 41 49 42 46 C43 43 46 42 49 44 C50 39 54 35 58 34 Z"
+              fill="#c8952f"/>
+        <path d="M46 53 C42 58 38 64 34 70 C33 72 34 74 36 74.5 C38 75 40 73.5 41 71.5 C44 66 48 61 51 56 Z"
+              fill="#f0e6d2" opacity="0.9"/>
+        <circle cx="35.5" cy="72.5" r="2.6" fill="#f0e6d2"/>
+      </g>
+      <g fill="#c8952f">
+        <ellipse cx="21" cy="54" rx="4" ry="2" transform="rotate(-20 21 54)"/>
+        <ellipse cx="21" cy="46" rx="4" ry="2" transform="rotate(-45 21 46)"/>
+        <ellipse cx="25" cy="39" rx="4" ry="2" transform="rotate(-65 25 39)"/>
+        <ellipse cx="87" cy="54" rx="4" ry="2" transform="rotate(20 87 54)"/>
+        <ellipse cx="87" cy="46" rx="4" ry="2" transform="rotate(45 87 46)"/>
+        <ellipse cx="83" cy="39" rx="4" ry="2" transform="rotate(65 83 39)"/>
+      </g>
+    </svg>
+  </div>
+  <h1 class="display title-sub">THE LONG FAMILY</h1>
+  <h1 class="display title-main">TURKEY GAMES</h1>
+  <div class="tagline">MAY THE ODDS BE EVER IN YOUR GRAVY</div>
+</header>
+
+<div id="status-banner">Loading…</div>
+<div class="toolbar"><button id="refresh-now">Refresh Now</button></div>
+
+<nav class="tabs">
+  <button class="tab-button active" data-tab="leaderboard">Leaderboard</button>
+  <button class="tab-button" data-tab="category">Category Breakdown</button>
+  <button class="tab-button" data-tab="calibration">Judge Calibration</button>
+  <button class="tab-button" data-tab="data">Data Source</button>
+</nav>
+
+<main>
+  <div id="panel-leaderboard" class="tab-panel active"></div>
+  <div id="panel-category" class="tab-panel"></div>
+  <div id="panel-calibration" class="tab-panel"></div>
+  <div id="panel-data" class="tab-panel"></div>
+</main>
+
+<footer>THE ODDS ARE NEVER IN THE FAVOR OF A DRY BREAST</footer>
+
+<script src="config.js"></script>
+<script src="scoring.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
