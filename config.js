@@ -10,7 +10,7 @@ window.COOKOFF_CONFIG = {
   //
   // Leave this EMPTY ("") to run the page against the bundled demo data
   // (sample_scores.csv) instead -- handy for testing before the event.
-  CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRhXOkkjPzW1h-VJ4nTe4dQ3ebQmhyFyQqiEMN6j7SQ-1Q3t1-kCKcG-tzUf1hJ_A3tyBm67iitFFcl/pub?gid=409080413&single=true&output=csv",
+  CSV_URL: "",
 
   // Local fallback/demo file, used only when CSV_URL is empty above.
   DEMO_CSV_PATH: "sample_scores.csv",
