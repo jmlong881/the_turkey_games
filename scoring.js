@@ -103,37 +103,118 @@ function flagOutliers(longRows, flagGap) {
   return out;
 }
 
+// Reshape a "wide" Google Form export into the long Judge/Team/Category/Score
+// shape the rest of this file works with.
+//
+// Some Forms ask a judge to score every team in a single submission, which
+// produces one row per judge with each team's categories as their own
+// columns, e.g. "Team 1 - Taste", "Team 1 - Texture", ..., "Team 2 - Taste".
+// Any column whose name ends in " - <Category>" (case-insensitive; the part
+// before it, trimmed, is the team name) is picked up automatically -- any
+// number of teams, whatever they're named.
+//
+// Returns null if no columns match that pattern (i.e. this isn't wide-shaped
+// data), so the caller can fall back to the plain long-format path.
+function reshapeWideForm(rows) {
+  const sample = rows[0] || {};
+  const colRegex = new RegExp(`^(.*) - (${CATEGORIES.join("|")})$`, "i");
+  const teamCols = Object.keys(sample).filter(c => colRegex.test(c));
+  if (teamCols.length === 0) return null;
+
+  const longRows = [];
+  for (const row of rows) {
+    const judge = String(row.Judge || "").trim();
+    for (const col of teamCols) {
+      const m = col.match(colRegex);
+      const team = m[1].trim();
+      // normalize the matched category token to its canonical CATEGORIES casing
+      const category = CATEGORIES.find(c => c.toLowerCase() === m[2].toLowerCase());
+      const raw = row[col];
+      const score = raw === "" || raw == null ? NaN : Number(raw);
+      if (!Number.isNaN(score)) {
+        longRows.push({ Judge: judge, Team: team, Category: category, Score: score });
+      }
+    }
+  }
+  return longRows;
+}
+
 // Build the leaderboard from raw judge scores.
 //
-// rows: array of objects with Judge, Team, Taste, Texture, Presentation,
-//       Creativity (one row per judge per team)
+// Accepts either shape:
+//   - long: one row per judge per team, columns Judge, Team, Taste, Texture,
+//     Presentation, Creativity
+//   - wide: one row per judge, columns Judge plus "<Team> - Taste",
+//     "<Team> - Texture", etc. repeated per team (what you get when a judge
+//     scores every team in a single Form submission)
+// Extra columns (Timestamp, Notes, ...) are ignored either way.
 //
+// Google Form question titles often pick up a trailing colon and/or stray
+// whitespace (e.g. "Judge:") -- strip that and canonicalize "Judge"/"Team"
+// case so a cosmetic habit in how you title questions doesn't block real
+// data. Returns new row objects; doesn't mutate the input.
+function normalizeHeaders(rows) {
+  if (rows.length === 0) return rows;
+  const keyMap = {};
+  for (const key of Object.keys(rows[0])) {
+    let clean = key.trim().replace(/:\s*$/, "");
+    if (clean.toLowerCase() === "judge") clean = "Judge";
+    else if (clean.toLowerCase() === "team") clean = "Team";
+    keyMap[key] = clean;
+  }
+  return rows.map(row => {
+    const out = {};
+    for (const [key, value] of Object.entries(row)) out[keyMap[key]] = value;
+    return out;
+  });
+}
+
 // Returns { leaderboard, flags, longRows }
 function buildLeaderboard(rows, weights = CFG.CATEGORY_WEIGHTS, flagGap = CFG.FLAG_GAP) {
-  const required = ["Judge", "Team", ...CATEGORIES];
+  rows = normalizeHeaders(rows);
   const sample = rows[0] || {};
-  const missing = required.filter(c => !(c in sample));
-  if (rows.length > 0 && missing.length > 0) {
+  if (rows.length > 0 && !("Judge" in sample)) {
     throw new Error(
-      `Your data is missing required column(s): ${missing.join(", ")}. ` +
-      `Expected columns are: ${required.join(", ")}.`
+      "Your data is missing required column(s): Judge. " +
+      "Expected either: Judge, Team, Taste, Texture, Presentation, Creativity " +
+      "or: Judge, <Team> - Taste, <Team> - Texture, <Team> - Presentation, <Team> - Creativity (repeated per team)."
     );
   }
 
-  const clean = rows
-    .map(r => ({
-      Judge: String(r.Judge || "").trim(),
-      Team: String(r.Team || "").trim(),
-      ...Object.fromEntries(CATEGORIES.map(c => [c, r[c] === "" || r[c] == null ? NaN : Number(r[c])]))
-    }))
-    .filter(r => r.Team !== "");
+  let longRows;
+  if ("Team" in sample) {
+    const missing = CATEGORIES.filter(c => !(c in sample));
+    if (rows.length > 0 && missing.length > 0) {
+      throw new Error(
+        `Your data is missing required column(s): ${missing.join(", ")}. ` +
+        `Expected columns are: Judge, Team, ${CATEGORIES.join(", ")}.`
+      );
+    }
+    const clean = rows
+      .map(r => ({
+        Judge: String(r.Judge || "").trim(),
+        Team: String(r.Team || "").trim(),
+        ...Object.fromEntries(CATEGORIES.map(c => [c, r[c] === "" || r[c] == null ? NaN : Number(r[c])]))
+      }))
+      .filter(r => r.Team !== "");
 
-  const longRows = [];
-  for (const r of clean) {
-    for (const cat of CATEGORIES) {
-      if (!Number.isNaN(r[cat])) {
-        longRows.push({ Judge: r.Judge, Team: r.Team, Category: cat, Score: r[cat] });
+    longRows = [];
+    for (const r of clean) {
+      for (const cat of CATEGORIES) {
+        if (!Number.isNaN(r[cat])) {
+          longRows.push({ Judge: r.Judge, Team: r.Team, Category: cat, Score: r[cat] });
+        }
       }
+    }
+  } else {
+    longRows = reshapeWideForm(rows);
+    if (longRows === null) {
+      throw new Error(
+        "Your data has no 'Team' column, and no columns matching the " +
+        "'<Team> - <Category>' pattern (e.g. 'Team 1 - Taste') were found either. " +
+        "Expected either: Judge, Team, Taste, Texture, Presentation, Creativity " +
+        "or: Judge, <Team> - Taste, <Team> - Texture, <Team> - Presentation, <Team> - Creativity (repeated per team)."
+      );
     }
   }
 
@@ -169,5 +250,5 @@ function buildLeaderboard(rows, weights = CFG.CATEGORY_WEIGHTS, flagGap = CFG.FL
 
 window.Scoring = {
   CATEGORIES, median, mean, robustScore,
-  rankDescending, flagOutliers, buildLeaderboard
+  rankDescending, flagOutliers, reshapeWideForm, normalizeHeaders, buildLeaderboard
 };

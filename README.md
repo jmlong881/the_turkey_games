@@ -48,10 +48,24 @@ In the Google Sheet your Form writes responses to:
 **CSV** → **Publish**. Copy the link it gives you (it's read-only — nobody
 can edit your data from it, same as a normal share link).
 
-Your Sheet's columns need to be, in some order: `Judge`, `Team`,
-`Taste`, `Texture`, `Presentation`, `Creativity` (a `Notes` column is fine
-too, it's just not used). This matches the Google Form fields from the
-Excel kit's setup guide.
+The site accepts two Sheet shapes — use whichever matches how your Form is
+built:
+
+**One Form submission per judge per team** (judges submit once per team) —
+columns, in any order: `Judge`, `Team`, `Taste`, `Texture`, `Presentation`,
+`Creativity`.
+
+**One Form submission per judge, scoring every team at once** — a `Judge`
+column, plus four category columns *per team*, named `<Team Name> - Taste`,
+`<Team Name> - Texture`, `<Team Name> - Presentation`, `<Team Name> -
+Creativity` (e.g. `Team 1 - Taste`, `Team 2 - Taste`, ...). Name your Form
+questions exactly that way (team name, then " - ", then the category) and
+the site will pick out however many teams you've got automatically.
+
+Either way: name the judge's-name question **`Judge`** (not "Name" or
+anything else — though a trailing colon like "Judge:" or different
+capitalization like "judge" is fine, no need to fix it in the Form), and a
+`Timestamp` or `Notes` column is fine — extra columns are just ignored.
 
 ### 2. Paste the link into `config.js`
 
