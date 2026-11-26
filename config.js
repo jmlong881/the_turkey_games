@@ -13,7 +13,7 @@ window.COOKOFF_CONFIG = {
   CSV_URL: "",
 
   // Local fallback/demo file, used only when CSV_URL is empty above.
-  DEMO_CSV_PATH: "sample_scores.csv",
+  DEMO_CSV_PATH: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRhXOkkjPzW1h-VJ4nTe4dQ3ebQmhyFyQqiEMN6j7SQ-1Q3t1-kCKcG-tzUf1hJ_A3tyBm67iitFFcl/pub?output=csv",
 
   // How often (seconds) the page re-fetches the CSV and recalculates.
   REFRESH_SECONDS: 20,
